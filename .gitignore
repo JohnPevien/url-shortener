@@ -39,3 +39,13 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# AI tool directories and files
+context/
+.claude/
+.windsurf/
+.windsurfrules
+.clinerules
+CLAUDE.md
+CRUSH.md
+.github/copilot-instructions.md
