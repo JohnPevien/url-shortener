@@ -7,13 +7,38 @@ const turso = createClient({
   authToken: process.env.TURSO_AUTH_TOKEN!,
 });
 
+// Only http(s) destinations are ever served; anything else 404s.
+function isHttpUrl(value: unknown): value is string {
+  if (typeof value !== 'string' || value.length === 0 || value.length > 2048) return false;
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
+function isAdminAuthorized(req: NextRequest): boolean {
+  const token = process.env.ADMIN_TOKEN;
+  if (!token) return false;
+  const header = req.headers.get('x-admin-token');
+  const cookie = req.cookies.get('admin_token')?.value;
+  return header === token || cookie === token;
+}
+
 export async function middleware(req: NextRequest) {
   const url = req.nextUrl;
+
+  if (url.pathname === '/admin' || url.pathname.startsWith('/admin/')) {
+    if (!isAdminAuthorized(req)) {
+      return NextResponse.rewrite(new URL('/404', req.url));
+    }
+    return NextResponse.next();
+  }
 
   if (
     url.pathname.startsWith('/_next') ||
     url.pathname.startsWith('/api') ||
-    url.pathname.startsWith('/admin') ||
     url.pathname.startsWith('/static') ||
     url.pathname === '/' ||
     url.pathname.includes('.')
@@ -31,7 +56,7 @@ export async function middleware(req: NextRequest) {
 
     const link = result.rows[0];
 
-    if (!link || !link.url) {
+    if (!link || !isHttpUrl(link.url)) {
       return NextResponse.rewrite(new URL('/404', req.url));
     }
 
@@ -50,7 +75,7 @@ export async function middleware(req: NextRequest) {
       }),
     }).catch((err) => console.error('Tracking failed', err));
 
-    return NextResponse.redirect(new URL(link.url as string), { status: 307 });
+    return NextResponse.redirect(new URL(link.url), { status: 307 });
   } catch (error) {
     console.error('Middleware Error:', error);
     return NextResponse.next();
