@@ -27,8 +27,19 @@ import {
 import { Input } from '@/components/ui/input';
 
 const formSchema = z.object({
-  slug: z.string().min(1, 'Slug is required').regex(/^[a-zA-Z0-9_-]+$/, 'Slug must be alphanumeric, dashes, or underscores'),
-  url: z.string().url('Please enter a valid URL'),
+  slug: z.string().min(1, 'Slug is required').max(64).regex(/^[a-zA-Z0-9_-]+$/, 'Slug must be alphanumeric, dashes, or underscores'),
+  // Write-path allowlist mirrors middleware: only http(s) destinations.
+  url: z.string().min(1).max(2048).refine(
+    (v) => {
+      try {
+        const parsed = new URL(v);
+        return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+      } catch {
+        return false;
+      }
+    },
+    'Only http(s) URLs are allowed',
+  ),
 });
 
 export function CreateLinkDialog() {

@@ -1,3 +1,5 @@
+import { headers, cookies } from 'next/headers';
+import { notFound } from 'next/navigation';
 import { db } from '@/lib/db';
 import { links } from '@/lib/schema';
 import { desc } from 'drizzle-orm';
@@ -16,6 +18,18 @@ import { CreateLinkDialog } from './_components/create-link-dialog';
 export const revalidate = 0; // Disable caching for the admin dashboard
 
 export default async function AdminDashboard() {
+  // Defense in depth: middleware gates /admin, but re-check here so the
+  // dashboard never renders without the env-configured admin token.
+  const adminToken = process.env.ADMIN_TOKEN;
+  const headerStore = await headers();
+  const cookieStore = await cookies();
+  if (
+    !adminToken ||
+    (headerStore.get('x-admin-token') !== adminToken &&
+      cookieStore.get('admin_token')?.value !== adminToken)
+  ) {
+    notFound();
+  }
   // Fetch links from Turso database, ordering by latest first
   const allLinks = await db.select().from(links).orderBy(desc(links.createdAt));
 
